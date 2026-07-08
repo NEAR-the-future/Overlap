@@ -1,11 +1,13 @@
 # Overlap
 
-A Next.js + Supabase prototype for group scheduling with project-based participant filtering.
+A Next.js + Supabase prototype for link-based group scheduling with project-based participant filtering.
 
 ## Features
 
 - Name-only participant sign-in
-- Click-and-drag availability painting in weekday 30-minute blocks
+- Create a meeting link from selected potential dates
+- Each shared link has isolated participants, projects, and availability
+- Click-and-drag availability painting in 30-minute blocks
 - Group heatmap that recalculates from the currently checked participants
 - Project creation and participant assignment
 - Project filter that checks only the members of a selected project
@@ -32,6 +34,8 @@ In Supabase, open the SQL editor and run:
 -- paste supabase/schema.sql
 ```
 
+Run the schema again after updates. It is written as a migration and will add the event-link tables/columns to an existing prototype database.
+
 Start the app:
 
 ```bash
@@ -44,6 +48,8 @@ npm run dev
 2. Import it in Vercel as a Next.js project.
 3. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel project settings.
 4. Deploy.
+
+After deploy, open the site root, select potential dates, create a link, and share the generated `?event=...` URL with the team.
 
 The prototype uses only regular Supabase Postgres tables and client-side reads/writes. No file storage, edge functions, or paid-only services are required.
 

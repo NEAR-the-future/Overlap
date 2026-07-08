@@ -1,10 +1,49 @@
 create extension if not exists pgcrypto;
 
+create table if not exists public.events (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null unique,
+  title text not null,
+  days jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+insert into public.events (slug, title, days)
+values (
+  'legacy',
+  'Legacy Meeting',
+  '[
+    {"key":"mon","label":"Mon","date":"Monday"},
+    {"key":"tue","label":"Tue","date":"Tuesday"},
+    {"key":"wed","label":"Wed","date":"Wednesday"},
+    {"key":"thu","label":"Thu","date":"Thursday"},
+    {"key":"fri","label":"Fri","date":"Friday"}
+  ]'::jsonb
+)
+on conflict (slug) do nothing;
+
 create table if not exists public.participants (
   id uuid primary key default gen_random_uuid(),
+  event_id uuid references public.events(id) on delete cascade,
   name text not null unique,
   created_at timestamptz not null default now()
 );
+
+alter table public.participants
+  add column if not exists event_id uuid references public.events(id) on delete cascade;
+
+update public.participants
+set event_id = (select id from public.events where slug = 'legacy')
+where event_id is null;
+
+alter table public.participants
+  alter column event_id set not null;
+
+alter table public.participants
+  drop constraint if exists participants_name_key;
+
+create unique index if not exists participants_event_id_name_key
+  on public.participants(event_id, lower(name));
 
 create table if not exists public.availability_slots (
   participant_id uuid not null references public.participants(id) on delete cascade,
@@ -15,9 +54,26 @@ create table if not exists public.availability_slots (
 
 create table if not exists public.projects (
   id uuid primary key default gen_random_uuid(),
+  event_id uuid references public.events(id) on delete cascade,
   name text not null unique,
   created_at timestamptz not null default now()
 );
+
+alter table public.projects
+  add column if not exists event_id uuid references public.events(id) on delete cascade;
+
+update public.projects
+set event_id = (select id from public.events where slug = 'legacy')
+where event_id is null;
+
+alter table public.projects
+  alter column event_id set not null;
+
+alter table public.projects
+  drop constraint if exists projects_name_key;
+
+create unique index if not exists projects_event_id_name_key
+  on public.projects(event_id, lower(name));
 
 create table if not exists public.project_members (
   project_id uuid not null references public.projects(id) on delete cascade,
@@ -25,10 +81,16 @@ create table if not exists public.project_members (
   primary key (project_id, participant_id)
 );
 
+alter table public.events enable row level security;
 alter table public.participants enable row level security;
 alter table public.availability_slots enable row level security;
 alter table public.projects enable row level security;
 alter table public.project_members enable row level security;
+
+drop policy if exists "Prototype read events" on public.events;
+drop policy if exists "Prototype insert events" on public.events;
+drop policy if exists "Prototype update events" on public.events;
+drop policy if exists "Prototype delete events" on public.events;
 
 drop policy if exists "Prototype read participants" on public.participants;
 drop policy if exists "Prototype insert participants" on public.participants;
@@ -49,6 +111,27 @@ drop policy if exists "Prototype read project members" on public.project_members
 drop policy if exists "Prototype insert project members" on public.project_members;
 drop policy if exists "Prototype update project members" on public.project_members;
 drop policy if exists "Prototype delete project members" on public.project_members;
+
+create policy "Prototype read events"
+  on public.events for select
+  to anon, authenticated
+  using (true);
+
+create policy "Prototype insert events"
+  on public.events for insert
+  to anon, authenticated
+  with check (true);
+
+create policy "Prototype update events"
+  on public.events for update
+  to anon, authenticated
+  using (true)
+  with check (true);
+
+create policy "Prototype delete events"
+  on public.events for delete
+  to anon, authenticated
+  using (true);
 
 create policy "Prototype read participants"
   on public.participants for select
@@ -136,6 +219,12 @@ create policy "Prototype delete project members"
 
 create index if not exists availability_slots_slot_key_idx
   on public.availability_slots(slot_key);
+
+create index if not exists participants_event_id_idx
+  on public.participants(event_id);
+
+create index if not exists projects_event_id_idx
+  on public.projects(event_id);
 
 create index if not exists project_members_participant_id_idx
   on public.project_members(participant_id);
