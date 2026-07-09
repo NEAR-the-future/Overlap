@@ -2,6 +2,8 @@
 
 A Next.js + Supabase prototype for link-based group scheduling with project-based participant filtering.
 
+[Use Overlap Now!](https://overlap-phi.vercel.app/)
+
 ## Features
 
 - Name-only participant sign-in
